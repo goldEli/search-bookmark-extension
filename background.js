@@ -63,6 +63,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: true });
     });
     return true;
+  } else if (message.action === 'getBookmarks') {
+    loadBookmarks().then((bookmarks) => {
+      sendResponse(bookmarks);
+    });
+    return true;
   }
   return false;
 });

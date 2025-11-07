@@ -269,8 +269,7 @@ function enterEditMode(item, bookmark) {
         title: newTitle,
         url: newUrl
       }, () => {
-        const currentQuery = searchInput.value;
-        searchBookmarks(currentQuery);
+        reloadBookmarks();
       });
     }
   });
@@ -289,10 +288,17 @@ function deleteBookmark(bookmark) {
       action: 'deleteBookmark',
       id: bookmark.id
     }, () => {
-      const currentQuery = searchInput.value;
-      searchBookmarks(currentQuery);
+      reloadBookmarks();
     });
   }
+}
+
+function reloadBookmarks() {
+  const currentQuery = searchInput.value;
+  chrome.runtime.sendMessage({ action: 'getBookmarks' }, (newBookmarks) => {
+    bookmarks = newBookmarks || [];
+    searchBookmarks(currentQuery);
+  });
 }
 
 function closeOverlay() {
