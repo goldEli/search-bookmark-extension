@@ -35,6 +35,10 @@ function createOverlay() {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       }
 
+      .bookmark-item {
+        position: relative;
+      }
+
       #bookmark-search-input {
         width: 100%;
         padding: 16px 20px;
@@ -88,6 +92,50 @@ function createOverlay() {
         text-overflow: ellipsis;
       }
 
+      .bookmark-actions {
+        position: absolute;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: none;
+        gap: 8px;
+      }
+
+      .bookmark-item:hover .bookmark-actions,
+      .bookmark-item.selected .bookmark-actions {
+        display: flex;
+      }
+
+      .bookmark-btn {
+        padding: 4px 8px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 500;
+        background: #2a2a2a;
+        color: #aaa;
+        transition: all 0.2s;
+      }
+
+      .bookmark-btn:hover {
+        background: #3a3a3a;
+        color: #fff;
+      }
+
+      .bookmark-btn.edit {
+        background: #2a2a2a;
+      }
+
+      .bookmark-btn.delete {
+        background: #2a2a2a;
+      }
+
+      .bookmark-btn.delete:hover {
+        background: #4a1a1a;
+        color: #ff6b6b;
+      }
+
       .no-results {
         padding: 20px;
         text-align: center;
@@ -123,14 +171,37 @@ function updateResults(results) {
   results.forEach((bookmark, index) => {
     const item = document.createElement('div');
     item.className = 'bookmark-item';
+    item.dataset.bookmarkId = bookmark.id;
     if (index === 0) item.classList.add('selected');
 
     item.innerHTML = `
-      <div class="bookmark-title">${escapeHtml(bookmark.title)}</div>
-      <div class="bookmark-url">${escapeHtml(bookmark.url)}</div>
+      <div class="bookmark-content">
+        <div class="bookmark-title">${escapeHtml(bookmark.title)}</div>
+        <div class="bookmark-url">${escapeHtml(bookmark.url)}</div>
+      </div>
+      <div class="bookmark-actions">
+        <button class="bookmark-btn edit" data-action="edit">Edit</button>
+        <button class="bookmark-btn delete" data-action="delete">Delete</button>
+      </div>
     `;
 
-    item.addEventListener('click', () => openBookmark(bookmark));
+    item.addEventListener('click', (e) => {
+      if (e.target.classList.contains('bookmark-btn')) {
+        return;
+      }
+      openBookmark(bookmark);
+    });
+
+    item.querySelector('.bookmark-btn.edit').addEventListener('click', (e) => {
+      e.stopPropagation();
+      enterEditMode(item, bookmark);
+    });
+
+    item.querySelector('.bookmark-btn.delete').addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteBookmark(bookmark);
+    });
+
     resultsContainer.appendChild(item);
   });
 }
@@ -159,6 +230,69 @@ function searchBookmarks(query) {
 function openBookmark(bookmark) {
   chrome.runtime.sendMessage({ action: 'openTab', url: bookmark.url });
   closeOverlay();
+}
+
+function enterEditMode(item, bookmark) {
+  const content = item.querySelector('.bookmark-content');
+  const originalHTML = content.innerHTML;
+
+  content.innerHTML = `
+    <input type="text"
+           class="edit-title"
+           value="${escapeHtml(bookmark.title)}"
+           placeholder="Title"
+           style="width: 100%; margin-bottom: 8px; padding: 4px 8px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 14px;">
+    <input type="text"
+           class="edit-url"
+           value="${escapeHtml(bookmark.url)}"
+           placeholder="URL"
+           style="width: 100%; padding: 4px 8px; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 12px;">
+    <div class="edit-actions" style="margin-top: 8px; display: flex; gap: 8px;">
+      <button class="bookmark-btn save" style="background: #2a4a2a; color: #6b6b;">Save</button>
+      <button class="bookmark-btn cancel" style="background: #2a2a2a;">Cancel</button>
+    </div>
+  `;
+
+  const saveBtn = content.querySelector('.save');
+  const cancelBtn = content.querySelector('.cancel');
+  const titleInput = content.querySelector('.edit-title');
+  const urlInput = content.querySelector('.edit-url');
+
+  saveBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const newTitle = titleInput.value.trim();
+    const newUrl = urlInput.value.trim();
+    if (newTitle && newUrl) {
+      chrome.runtime.sendMessage({
+        action: 'editBookmark',
+        id: bookmark.id,
+        title: newTitle,
+        url: newUrl
+      }, () => {
+        const currentQuery = searchInput.value;
+        searchBookmarks(currentQuery);
+      });
+    }
+  });
+
+  cancelBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    content.innerHTML = originalHTML;
+  });
+
+  titleInput.focus();
+}
+
+function deleteBookmark(bookmark) {
+  if (confirm('Are you sure you want to delete this bookmark?')) {
+    chrome.runtime.sendMessage({
+      action: 'deleteBookmark',
+      id: bookmark.id
+    }, () => {
+      const currentQuery = searchInput.value;
+      searchBookmarks(currentQuery);
+    });
+  }
 }
 
 function closeOverlay() {

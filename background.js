@@ -48,5 +48,21 @@ if (chrome.action && chrome.action.onClicked) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'openTab') {
     chrome.tabs.create({ url: message.url });
+    sendResponse({ success: true });
+    return true;
+  } else if (message.action === 'editBookmark') {
+    chrome.bookmarks.update(message.id, {
+      title: message.title,
+      url: message.url
+    }, () => {
+      sendResponse({ success: true });
+    });
+    return true;
+  } else if (message.action === 'deleteBookmark') {
+    chrome.bookmarks.remove(message.id, () => {
+      sendResponse({ success: true });
+    });
+    return true;
   }
+  return false;
 });
