@@ -306,6 +306,7 @@ function closeOverlay() {
     overlay.remove();
     overlay = null;
     isVisible = false;
+    window.bookmarkSearchExtensionLoaded = false;
   }
 }
 
